@@ -156,10 +156,10 @@ docker service logs --tail=10 traefik_traefik
 Traefik also have a Web UI which has been deployed on port 8080 on url which will be something like :
 
 ```
-http://ip10_0_3_3-8080.pwd.allamand.com/
+http://pwd10_0_3_3-8080.pwd.allamand.com/
 ```
 
-> Change the ip part (**10_0_3_3**) with the ip of your node with "_" instead of ".". (look at your shell prompt)<br>
+> Change the ip part (`10_0_3_3`) with the ip of your node with `_` instead of `.`. ==> (**look at your shell prompt**)<br>
 > Please correct the url and try to open in the browser
 
 For know the dashboard must be empty
@@ -216,7 +216,7 @@ docker network inspect traefik_public
 
 Check again the Traefik Dashboard
 ```
-http://ip10_0_3_3-8080.pwd.allamand.com/
+http://pwd10_0_3_3-8080.pwd.allamand.com/
 ```
 >don't forget to adapt the url to your context
 
@@ -242,7 +242,7 @@ we can see in response that it is the http container that make the response
 
 You can Request the service directly expose on :
 ```
-http://ip10_0_3_3-80.pwd.allamand.com/http/
+http://pwd10_0_3_3-80.pwd.allamand.com/http/
 ```
 >don't forget to adapt the url to your context
 
@@ -376,7 +376,7 @@ Check the **Traefik Dashboard** and will see that two new entries was added (*fr
 
 #### You can now make your Vote!!
 ```
-http://ip10_0_2_3-80.pwd.allamand.com/vote/
+http://pwd10_0_2_3-80.pwd.allamand.com/vote/
 ```
 >don't forget to adapt the url to your context
 
@@ -388,7 +388,7 @@ curl http://localhost/vote/
 
 #### And See the results of votes
 ```
-http://ip10_0_2_3-80.pwd.allamand.com/result/
+http://pwd10_0_2_3-80.pwd.allamand.com/result/
 ```
 >don't forget to adapt the url to your context
 
@@ -402,11 +402,17 @@ you can see the logs of the services :
 docker service logs --tail=10 cloud_vote
 ```
 
+# Free ressources
 
-> In future version we would be able to watchs all logs running
-> **docker stack logs cloud** but it's still expérimental the time of writing
+When you are finish with this tuto please free unused ressources :
 
+```.term1
+docker stack rm cloud
+docker stack rm http
+docker stack rm traefik
+```
 
+# Conclusion
 
 You are now able to deploy any stack on Docker Swarm Mode using docker-compose and Traefik Proxy!
 

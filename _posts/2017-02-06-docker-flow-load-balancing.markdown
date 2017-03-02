@@ -148,7 +148,7 @@ Check docker networks
 docker network ls
 ```
 
-You can see that a specific network **proxy_public** has been created.
+You can see that a specific network **proxy_public** has been created with Driver **overlay**.
 
 Later If we want others containers to be able to be published through the proxy load balancer we will need to **attached them** also to this network.
 
@@ -161,6 +161,8 @@ List all your deployed stacks, and view detailed on a specific stack
 docker stack ls
 docker stack ps proxy
 ```
+
+We must have 2 Proxy Running and 1 swarm-listener Running
 
 > Since we have set 2 replicas for the `proxy` service it will be deployed on both nodes while `swarm-listener` must be on one manager node
 
@@ -205,11 +207,13 @@ services:
     networks:
       - proxy_public
     deploy:
-      replicas: 1
+      replicas: 3
       labels:
         - com.df.notify=true
         - com.df.distribute=true
         - com.df.servicePath=/http/
+        - com.df.reqPathSearch=/http/
+        - com.df.reqPathReplace=/renamed/
         - com.df.port=80
 
 networks:
@@ -250,7 +254,7 @@ docker stack ps http
 
 #### request the service
 
->we have defined that our service will be requested if it starded with the path `/http/`, using the rule in the label `com.df.servicePath=/http/`
+>we have defined that our service will be requested if it starded with the path `/http`, using the rule in the label `com.df.servicePath=/http`
 
 >don't forget to adapt the url to your context
 
@@ -259,17 +263,18 @@ from node1
 ```.term1
 curl http://localhost/http/
 ```
-from node2 `.term2 echo coucou`
+from node2 
 ```.term2
 curl http://localhost/http/
 ```
-we can see in response that it is the http container that make the response
+we can see in response that it is the http container that make the response, and that the Url have been rewritten (see the `/rewrited/` in the GET parameter)
+
 
 You can request the service in your Browser
 ```
-http://ip10_0_1_3-80.pwd.allamand.com/http/
+http://pwd10_0_1_3-80.pwd.allamand.com/http/
 ```
-> Change the ip part (**10_0_3_3**) with the ip of your node with "_" instead of ".". (look at your shell prompt)<br>
+> Change the ip part (`10_0_3_3`) with the ip of your node with `_` instead of `.`. (look at your **shell prompt**)<br>
 > Please correct the url and try to open in the browser
 
 
@@ -320,86 +325,8 @@ curl http://localhost:8080/v1/docker-flow-proxy/config
 ```
 
 
-
-## Bonus
-
-We can add a Swarm visualizer service on our Traefik :
-
-
-```.term1
-cat <<EOF > visualizer.yml
-version: "3"
-
-services:
-  visu:
-    image: manomarks/visualizer
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
-    networks:
-      - proxy_public
-    ports:
-      - 81:8080
-    deploy:
-      replicas: 1
-      labels:
-      labels:
-        - com.df.notify=true
-        - com.df.distribute=true
-        - com.df.servicePath=/visu/
-#        - com.df.reqMode=tcp		
-        - com.df.reqPathSearch=/visu/
-        - com.df.reqPathReplace=/
-        - com.df.port=8080
-#        - com.df.srcPort=8080
-      placement:
-        constraints: [node.role == manager]		                                                   
-      restart_policy:
-        condition: on-failure
-
-networks:
-  proxy_public:
-    external: true
-
-EOF
-```
-
-#### launch the container
-
-
-```.term1
-docker stack deploy visu --compose-file visualizer.yml
-```
-
-Open the service in your browser
-We have two ways to reach the service :
-- using Docker-Flow Proxy (but for now it does not works :( )
-- targetting directly on the Port 81 that the service has exposed for this purpose
-```
-http://ip10_0_6_3-80.pwd.allamand.com/visu/
-or
-http://ip10_0_6_3-81.pwd.allamand.com/
-```
->don't forget to adapt the url to your context
-
-
-```.term1
-docker service ps visu_visu
-```
-
-Test it locally 
-```.term1
-curl http://localhost/visu/
-```
-
-We can view the updated configuration on the proxy API
-```.term1
-curl http://localhost:8080/v1/docker-flow-proxy/config
-```
-
-<br><br><br><br>
-# Annexe (if you want to continue) - Work Still in Progress--
-
 ## Deploy a Microservice Application
+
 
 We Have see how we can leverage Docker labels to dynamically customize our LoadBalancing routing rules, and docker-compose to create and links services together.
 
@@ -434,7 +361,7 @@ cd example-voting-app
 and launch the app using docker-compose file, you can view the **docker-compose-flow-proxy.yml** file
 
 ```.term1
-docker stack deploy cloud -c docker-compose-flow-proxy.yml
+time docker stack deploy cloud -c docker-compose-flow-proxy.yml
 ```
 
 > This command will build each part of the microservice from sources.
@@ -454,8 +381,8 @@ For that we are using specific docker-flow labels `reqPathSearch` and `reqPathRe
         - com.df.notify=true
         - com.df.distribute=true
         - com.df.servicePath=/vote/
-        - com.df.reqPathSearch='/vote/'
-        - com.df.reqPathReplace='/'
+        - com.df.reqPathSearch=/vote/
+        - com.df.reqPathReplace=/
         - com.df.port=80
 
 ```
@@ -477,9 +404,15 @@ Once All container are in **Running** state, you can start test the application
 Check the **Traefik Dashboard** and will see that two new entries was added (*frontend-PathPrefixStrip-result* & *frontend-PathPrefixStrip-vote*)
 
 
+We can view the updated configuration on the proxy API
+```.term1
+curl http://localhost:8080/v1/docker-flow-proxy/config
+```
+
+
 #### You can now make your Vote!!
 ```
-http://ip10_0_2_3-80.pwd.allamand.com/vote/
+http://pwd10_0_2_3-80.pwd.allamand.com/vote/
 ```
 >don't forget to adapt the url to your context
 
@@ -491,7 +424,7 @@ curl http://localhost/vote/
 
 #### And See the results of votes
 ```
-http://ip10_0_2_3-80.pwd.allamand.com/result/
+http://pwd10_0_2_3-80.pwd.allamand.com/result/
 ```
 >don't forget to adapt the url to your context
 
@@ -506,26 +439,85 @@ docker service logs --tail=10 cloud_vote
 ```
 
 
-> In future version we would be able to watchs all logs running
-> **docker stack logs cloud** but it's still expérimental the time of writing
+>You are now able to deploy any stack on Docker Swarm Mode using docker-compose and **Docker Flow Proxy**!
 
 
 
-You are now able to deploy any stack on Docker Swarm Mode using docker-compose and Traefik Proxy!
+## Bonus
+
+We can add a Swarm visualizer service on our Traefik :
 
 
-Note:
+```.term1
+cat <<EOF > visualizer.yml
+version: "3"
 
-> Using Traefik, it is generally recommended to uses the Host-based instead of the Path-based Proxification we used in this tutorial.<br>
-> We used this because with Play-With-Docker, there already a Host-based routing to target your instances of service (i.e: traefik).
+services:
+  visu:
+    image: manomarks/visualizer
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - proxy_public
+    ports:
+      - 81:8080
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]		                                                   
+      restart_policy:
+        condition: on-failure
 
-To use Host-based Proxification with trafik, just uses a label like :
+networks:
+  proxy_public:
+    external: true
+
+EOF
+```
+
+#### launch the container
+
+
+```.term1
+docker stack deploy visu --compose-file visualizer.yml
+```
+
+Open the service in your browser
+We can now target directly the port 81 of our swarm cluster and docker will direclty reach our Visualizer service
 
 ```
-    labels:
-      - "traefik.backend=test2"
-      - "traefik.port=80"
-      - "traefik.frontend.rule=Host:myservice.myhost.com"
+http://pwd10_0_6_3-81.pwd.allamand.com/
+```
+>don't forget to adapt the url to your context
+
+
+```.term1
+docker service ps visu_visu
 ```
 
+Test it locally 
+```.term1
+curl http://localhost:81
+```
+
+We can view the updated configuration on the proxy API
+```.term1
+curl http://localhost:8080/v1/docker-flow-proxy/config
+```
+
+This should be something like :
+
+![](../images/visualizer.png)
+
+
+## Cleanup
+
+Please Free unused ressources
+
+```.term1
+docker stack rm cloud
+docker stack rm visu
+docker stack rm http
+docker stack rm proxy
+```
 
